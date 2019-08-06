@@ -1,5 +1,40 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(gmapping)
+project(Gmapping)
+
+
+
+set(GMAPPING_MAJOR_VERSION 0)
+set(GMAPPING_MINOR_VERSION 1)
+set(GMAPPING_PATCH_VERSION 0)
+set(GMAPPING_VERSION
+  ${GMAPPING_MAJOR_VERSION}.${GMAPPING_MINOR_VERSION}.${GMAPPING_PATCH_VERSION})
+
+# Offer the user the choice of overriding the installation directories
+set(INSTALL_LIB_DIR lib CACHE PATH "Installation directory for libraries")
+set(INSTALL_BIN_DIR bin CACHE PATH "Installation directory for executables")
+set(INSTALL_INCLUDE_DIR include CACHE PATH
+  "Installation directory for header files")
+if(WIN32 AND NOT CYGWIN)
+  set(DEF_INSTALL_CMAKE_DIR CMake)
+else()
+  set(DEF_INSTALL_CMAKE_DIR lib/CMake/Gmapping)
+endif()
+set(INSTALL_CMAKE_DIR ${DEF_INSTALL_CMAKE_DIR} CACHE PATH
+  "Installation directory for CMake files")
+
+# Make relative paths absolute (needed later on)
+foreach(p LIB BIN INCLUDE CMAKE)
+  set(var INSTALL_${p}_DIR)
+  if(NOT IS_ABSOLUTE "${${var}}")
+    set(${var} "${CMAKE_INSTALL_PREFIX}/${${var}}")
+  endif()
+endforeach()
+
+# set up include-directories
+include_directories(
+  "${PROJECT_SOURCE_DIR}"   # to find foo/foo.h
+  "${PROJECT_BINARY_DIR}")  # to find foo/config.h
+
 
 
 
@@ -17,8 +52,24 @@ include_directories(include)
 add_library(utils
   utils/stat.cpp
   utils/movement.cpp)
+
+install(TARGETS utils
+  # IMPORTANT: Add the foo library to the "export-set"
+  EXPORT FooBarTargets
+  ARCHIVE DESTINATION "${INSTALL_BIN_DIR}" COMPONENT bin
+  LIBRARY DESTINATION "${INSTALL_LIB_DIR}" COMPONENT lib
+  PUBLIC_HEADER DESTINATION "${INSTALL_INCLUDE_DIR}"
+    COMPONENT dev)
+
+
 add_executable(autoptr_test
   utils/autoptr_test.cpp)
+
+install(TARGETS autoptr_test
+  # IMPORTANT: Add the bar executable to the "export-set"
+  EXPORT GmappingTargets
+  RUNTIME DESTINATION "${INSTALL_BIN_DIR}" COMPONENT bin)
+
 
 # sensor/
 # SUBDIRS=sensor_base sensor_odometry sensor_range
@@ -138,7 +189,7 @@ target_link_libraries(gridfastslam
 # )
 
 ## Mark executables and/or libraries for installation
-install(TARGETS utils autoptr_test sensor_base sensor_odometry sensor_range sensor_range log log_test log_plot scanstudio2carmen rdk2carmen configfile configfile_test scanmatcher scanmatch_test icptest gridfastslam gfs2log gfs2rec gfs2neff
+install(TARGETS utils autoptr_test sensor_base sensor_odometry sensor_range log log_test log_plot scanstudio2carmen rdk2carmen configfile configfile_test scanmatcher scanmatch_test icptest gridfastslam gfs2log gfs2rec gfs2neff
   ARCHIVE DESTINATION /usr/lib/gmapping
   LIBRARY DESTINATION /usr/lib/gmapping
   RUNTIME DESTINATION /usr/bin
@@ -150,6 +201,43 @@ install(DIRECTORY include/gmapping
   FILES_MATCHING PATTERN "*.h*"
   PATTERN ".svn" EXCLUDE
 )
+
+# The interesting stuff goes here
+# ===============================
+
+# Add all targets to the build-tree export set
+export(TARGETS utils autoptr_test sensor_base sensor_odometry sensor_range log log_test log_plot scanstudio2carmen rdk2carmen configfile configfile_test scanmatcher scanmatch_test icptest gridfastslam gfs2log gfs2rec gfs2neff
+  FILE "${PROJECT_BINARY_DIR}/GmappingTargets.cmake")
+
+# Export the package for use from the build-tree
+# (this registers the build-tree with a global CMake-registry)
+export(PACKAGE Gmapping)
+
+# Create the FooBarConfig.cmake and FooBarConfigVersion files
+file(RELATIVE_PATH REL_INCLUDE_DIR "${INSTALL_CMAKE_DIR}"
+   "${INSTALL_INCLUDE_DIR}")
+# ... for the build tree
+set(CONF_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}" "${PROJECT_BINARY_DIR}")
+configure_file(GmappingConfig.cmake.in
+  "${PROJECT_BINARY_DIR}/GmappingConfig.cmake" @ONLY)
+# ... for the install tree
+set(CONF_INCLUDE_DIRS "\${GMAPPING_CMAKE_DIR}/${REL_INCLUDE_DIR}")
+configure_file(GmappingConfig.cmake.in
+  "${PROJECT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/GmappingConfig.cmake" @ONLY)
+## ... for both
+configure_file(GmappingConfigVersion.cmake.in
+  "${PROJECT_BINARY_DIR}/GmappingConfigVersion.cmake" @ONLY)
+
+## Install the GmappingConfig.cmake and GmappingConfigVersion.cmake
+install(FILES
+  "${PROJECT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/GmappingConfig.cmake"
+  "${PROJECT_BINARY_DIR}/GmappingConfigVersion.cmake"
+  DESTINATION "${INSTALL_CMAKE_DIR}")
+
+## Install the export set for use with the install-tree
+install(EXPORT GmappingTargets DESTINATION
+  "${INSTALL_CMAKE_DIR}" COMPONENT dev)
+
 
 #############
 ## Testing ##
