@@ -14,14 +14,18 @@ set(INSTALL_BIN_DIR bin CACHE PATH "Installation directory for executables")
 set(INSTALL_INCLUDE_DIR include CACHE PATH
   "Installation directory for header files")
 
-#默认安装路径是/usr/local，因而GmappingConfig.cmake是安装在/usr/local/lib/Cmake/Gmapping下
+
+
+#默认安装路径是/usr/local，因而GmappingConfig.cmake是安装在/usr/local/lib/cmake/gmapping下
 if(WIN32 AND NOT CYGWIN)
   set(DEF_INSTALL_CMAKE_DIR CMake)
 else()
-  set(DEF_INSTALL_CMAKE_DIR lib/CMake/Gmapping)
+  set(DEF_INSTALL_CMAKE_DIR lib/cmake/gmapping)
 endif()
 set(INSTALL_CMAKE_DIR ${DEF_INSTALL_CMAKE_DIR} CACHE PATH
   "Installation directory for CMake files")
+
+
 
 # Make relative paths absolute (needed later on)
 foreach(p LIB BIN INCLUDE CMAKE)
@@ -31,14 +35,14 @@ foreach(p LIB BIN INCLUDE CMAKE)
   endif()
 endforeach()
 
+message("${INSTALL_INCLUDE_DIR}")
+
+
 # set up include-directories
 include_directories(
   "${PROJECT_SOURCE_DIR}"   # to find foo/foo.h
   "${PROJECT_BINARY_DIR}")  # to find foo/config.h
 
-#message("######################")
-#message("${PROJECT_SOURCE_DIR}")
-#message("${PROJECT_BINARY_DIR}")
 
 
 
@@ -48,54 +52,41 @@ include_directories(include)
 
 #SUBDIRS=utils sensor log configfile scanmatcher gridfastslam gui
 
-#逐个编译所有需要的运行程序和lib库
-# utils/
-# OBJS= stat.o  movement.o
-# APPS= autoptr_test #stat_test
-# CPPFLAGS+= -DFSLINE
-add_library(utils
-  utils/stat.cpp
-  utils/movement.cpp)
+#此处，可以将所有的库文件打包成为一个整体的库，也可以对每个进行单独打包
+#前者文件大小会大一点，但是不用在使用时具体区分依赖哪个具体的库，而是直接link这个，但后者文件会小一点
+#但是用后者单独编译某些小库时候可能存在相互依赖关系，因而也要对编译出来的库设置target_link_libraries，而不仅仅是可执行的文件需要
+
+set(GMAPPING_LIBRARIES_SRC  utils/stat.cpp
+                            utils/movement.cpp
+                            sensor/sensor_base/sensor.cpp
+                            sensor/sensor_base/sensorreading.cpp
+                            sensor/sensor_odometry/odometrysensor.cpp
+                            sensor/sensor_odometry/odometryreading.cpp
+                            sensor/sensor_range/rangesensor.cpp
+                            sensor/sensor_range/rangereading.cpp
+                            sensor/sensor_range/rangesensor.cpp
+                            sensor/sensor_range/rangereading.cpp
+                            log/configuration.cpp
+                            log/carmenconfiguration.cpp
+                            log/sensorlog.cpp
+                            log/sensorstream.cpp
+                            configfile/configfile.cpp
+                            scanmatcher/smmap.cpp
+                            scanmatcher/scanmatcher.cpp
+                            scanmatcher/scanmatcherprocessor.cpp
+                            scanmatcher/eig3.cpp
+                            gridfastslam/gridslamprocessor_tree.cpp
+                            gridfastslam/motionmodel.cpp
+                            gridfastslam/gridslamprocessor.cpp
+                            gridfastslam/gfsreader.cpp)
+
+add_library(Gmapping ${GMAPPING_LIBRARIES_SRC})
+
+
 
 add_executable(autoptr_test
   utils/autoptr_test.cpp)
 
-
-# sensor/sensor_base/
-# OBJS= sensor.o sensorreading.o
-add_library(sensor_base
-  sensor/sensor_base/sensor.cpp
-  sensor/sensor_base/sensorreading.cpp)
-
-# sensor/sensor_odometry/
-# LDFLAGS+= -lsensor_base
-# OBJS= odometrysensor.o odometryreading.o
-add_library(sensor_odometry
-  sensor/sensor_odometry/odometrysensor.cpp
-  sensor/sensor_odometry/odometryreading.cpp)
-target_link_libraries(sensor_odometry
-  sensor_base)
-
-# sensor/sensor_range/
-# CPPFLAGS+= -I../
-# LDFLAGS+= -lsensor_base
-# OBJS= rangesensor.o rangereading.o 
-add_library(sensor_range
-  sensor/sensor_range/rangesensor.cpp
-  sensor/sensor_range/rangereading.cpp)
-target_link_libraries(sensor_range
-  sensor_base)
-
-# log/
-# CPPFLAGS+= -I../sensor
-# OBJS= configuration.o carmenconfiguration.o sensorlog.o sensorstream.o
-# APPS= log_test log_plot scanstudio2carmen rdk2carmen
-# LDFLAGS+=  -lsensor_range -lsensor_odometry -lsensor_base 
-add_library(log
-  log/configuration.cpp
-  log/carmenconfiguration.cpp
-  log/sensorlog.cpp
-  log/sensorstream.cpp)
 add_executable(log_test
   log/log_test.cpp)
 add_executable(log_plot
@@ -104,62 +95,34 @@ add_executable(scanstudio2carmen
   log/scanstudio2carmen.cpp)
 add_executable(rdk2carmen
   log/rdk2carmen.cpp)
-target_link_libraries(log_test log)
-target_link_libraries(log_plot log)
-target_link_libraries(scanstudio2carmen log)
-target_link_libraries(rdk2carmen log)
-target_link_libraries(log
-  sensor_range sensor_odometry sensor_base)
+target_link_libraries(log_test Gmapping)
+target_link_libraries(log_plot Gmapping)
+target_link_libraries(scanstudio2carmen Gmapping)
+target_link_libraries(rdk2carmen Gmapping)
 
-# configfile/
-# OBJS= configfile.o 
-# APPS= configfile_test 
-add_library(configfile
-  configfile/configfile.cpp)
+
 add_executable(configfile_test
   configfile/configfile_test.cpp)
-target_link_libraries(configfile_test configfile)
+target_link_libraries(configfile_test Gmapping)
 
-# scanmatcher/
-# CPPFLAGS+=-I../sensor
-# OBJS= smmap.o scanmatcher.o scanmatcherprocessor.o eig3.o
-# APPS= scanmatch_test icptest
-# LDFLAGS+= -llog -lsensor_range -lsensor_odometry -lsensor_base -lutils
-add_library(scanmatcher
-  scanmatcher/smmap.cpp
-  scanmatcher/scanmatcher.cpp
-  scanmatcher/scanmatcherprocessor.cpp
-  scanmatcher/eig3.cpp)
+
 add_executable(scanmatch_test
   scanmatcher/scanmatch_test.cpp)
 add_executable(icptest
   scanmatcher/icptest.cpp)
-target_link_libraries(scanmatch_test scanmatcher)
-target_link_libraries(icptest scanmatcher)
-target_link_libraries(scanmatcher
-  log sensor_range sensor_odometry sensor_base utils)
+target_link_libraries(scanmatch_test Gmapping)
+target_link_libraries(icptest Gmapping)
 
-# gridfastslam/
-# CPPFLAGS+=-I../sensor
-# OBJS= gridslamprocessor_tree.o motionmodel.o gridslamprocessor.o gfsreader.o
-# APPS= gfs2log gfs2rec gfs2neff #gfs2stat
-# LDFLAGS+=  -lscanmatcher -llog -lsensor_range -lsensor_odometry -lsensor_base -lutils
-add_library(gridfastslam
-  gridfastslam/gridslamprocessor_tree.cpp
-  gridfastslam/motionmodel.cpp
-  gridfastslam/gridslamprocessor.cpp
-  gridfastslam/gfsreader.cpp)
 add_executable(gfs2log
   gridfastslam/gfs2log.cpp)
 add_executable(gfs2rec
   gridfastslam/gfs2rec.cpp)
 add_executable(gfs2neff
   gridfastslam/gfs2neff.cpp)
-target_link_libraries(gfs2log gridfastslam)
-target_link_libraries(gfs2rec gridfastslam)
-target_link_libraries(gfs2neff gridfastslam)
-target_link_libraries(gridfastslam
-  scanmatcher log sensor_range sensor_odometry sensor_base utils)
+target_link_libraries(gfs2log Gmapping)
+target_link_libraries(gfs2rec Gmapping)
+target_link_libraries(gfs2neff Gmapping)
+
 
 #############
 ## Install ##
@@ -174,15 +137,18 @@ target_link_libraries(gridfastslam
 # )
 
 ## Mark executables and/or libraries for installation
-install(TARGETS utils autoptr_test sensor_base sensor_odometry sensor_range log log_test log_plot scanstudio2carmen rdk2carmen configfile configfile_test scanmatcher scanmatch_test icptest gridfastslam gfs2log gfs2rec gfs2neff
+#install(TARGETS utils autoptr_test sensor_base sensor_odometry sensor_range log log_test log_plot scanstudio2carmen rdk2carmen configfile configfile_test scanmatcher scanmatch_test icptest gridfastslam gfs2log gfs2rec gfs2neff
+install(TARGETS Gmapping
+  EXPORT GmappingExport
   ARCHIVE DESTINATION /usr/lib/gmapping
   LIBRARY DESTINATION /usr/lib/gmapping
   RUNTIME DESTINATION /usr/bin
+
 )
 
 ## Mark cpp header files for installation
 install(DIRECTORY include/gmapping
-  DESTINATION /usr/local/include
+  DESTINATION ${INSTALL_INCLUDE_DIR}
   FILES_MATCHING PATTERN "*.h*"
   PATTERN ".svn" EXCLUDE
 )
@@ -191,8 +157,12 @@ install(DIRECTORY include/gmapping
 # ===============================
 
 # Add all targets to the build-tree export set
-export(TARGETS utils autoptr_test sensor_base sensor_odometry sensor_range log log_test log_plot scanstudio2carmen rdk2carmen configfile configfile_test scanmatcher scanmatch_test icptest gridfastslam gfs2log gfs2rec gfs2neff
-  FILE "${PROJECT_BINARY_DIR}/GmappingTargets.cmake")
+
+#export(TARGETS utils autoptr_test sensor_base sensor_odometry sensor_range log log_test log_plot scanstudio2carmen rdk2carmen configfile configfile_test scanmatcher scanmatch_test icptest gridfastslam gfs2log gfs2rec gfs2neff
+#  FILE "${PROJECT_BINARY_DIR}/GmappingTargets.cmake" )
+
+install(EXPORT GmappingExport DESTINATION ${INSTALL_CMAKE_DIR} FILE GmappingTargets.cmake)
+
 
 # Export the package for use from the build-tree
 # (this registers the build-tree with a global CMake-registry)
@@ -203,18 +173,13 @@ file(RELATIVE_PATH REL_INCLUDE_DIR "${INSTALL_CMAKE_DIR}"
    "${INSTALL_INCLUDE_DIR}")
 
 
-
 # ... for the build tree
 set(CONF_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}" "${PROJECT_BINARY_DIR}")
 
 
-
-configure_file(GmappingConfig.cmake.in
-  "${PROJECT_BINARY_DIR}/GmappingConfig.cmake" @ONLY)
-# ... for the install tree
-set(CONF_INCLUDE_DIRS "\${GMAPPING_CMAKE_DIR}/${REL_INCLUDE_DIR}")
 configure_file(GmappingConfig.cmake.in
   "${PROJECT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/GmappingConfig.cmake" @ONLY)
+
 ## ... for both
 configure_file(GmappingConfigVersion.cmake.in
   "${PROJECT_BINARY_DIR}/GmappingConfigVersion.cmake" @ONLY)
@@ -225,8 +190,10 @@ install(FILES
   "${PROJECT_BINARY_DIR}/GmappingConfigVersion.cmake"
   DESTINATION "${INSTALL_CMAKE_DIR}")
 
+#message("#########################")
+#message("${INSTALL_CMAKE_DIR}")
+#message("#########################")
 
-message("${GMAPPING_CMAKE_DIR}")
 #############
 ## Testing ##
 #############
