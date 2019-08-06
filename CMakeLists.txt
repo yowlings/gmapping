@@ -1,8 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(Gmapping)
 
-
-
+#设置软件的版本
 set(GMAPPING_MAJOR_VERSION 0)
 set(GMAPPING_MINOR_VERSION 1)
 set(GMAPPING_PATCH_VERSION 0)
@@ -14,6 +13,8 @@ set(INSTALL_LIB_DIR lib CACHE PATH "Installation directory for libraries")
 set(INSTALL_BIN_DIR bin CACHE PATH "Installation directory for executables")
 set(INSTALL_INCLUDE_DIR include CACHE PATH
   "Installation directory for header files")
+
+#默认安装路径是/usr/local，因而GmappingConfig.cmake是安装在/usr/local/lib/Cmake/Gmapping下
 if(WIN32 AND NOT CYGWIN)
   set(DEF_INSTALL_CMAKE_DIR CMake)
 else()
@@ -35,7 +36,9 @@ include_directories(
   "${PROJECT_SOURCE_DIR}"   # to find foo/foo.h
   "${PROJECT_BINARY_DIR}")  # to find foo/config.h
 
-
+#message("######################")
+#message("${PROJECT_SOURCE_DIR}")
+#message("${PROJECT_BINARY_DIR}")
 
 
 
@@ -45,6 +48,7 @@ include_directories(include)
 
 #SUBDIRS=utils sensor log configfile scanmatcher gridfastslam gui
 
+#逐个编译所有需要的运行程序和lib库
 # utils/
 # OBJS= stat.o  movement.o
 # APPS= autoptr_test #stat_test
@@ -53,26 +57,9 @@ add_library(utils
   utils/stat.cpp
   utils/movement.cpp)
 
-install(TARGETS utils
-  # IMPORTANT: Add the foo library to the "export-set"
-  EXPORT FooBarTargets
-  ARCHIVE DESTINATION "${INSTALL_BIN_DIR}" COMPONENT bin
-  LIBRARY DESTINATION "${INSTALL_LIB_DIR}" COMPONENT lib
-  PUBLIC_HEADER DESTINATION "${INSTALL_INCLUDE_DIR}"
-    COMPONENT dev)
-
-
 add_executable(autoptr_test
   utils/autoptr_test.cpp)
 
-install(TARGETS autoptr_test
-  # IMPORTANT: Add the bar executable to the "export-set"
-  EXPORT GmappingTargets
-  RUNTIME DESTINATION "${INSTALL_BIN_DIR}" COMPONENT bin)
-
-
-# sensor/
-# SUBDIRS=sensor_base sensor_odometry sensor_range
 
 # sensor/sensor_base/
 # OBJS= sensor.o sensorreading.o
@@ -178,8 +165,6 @@ target_link_libraries(gridfastslam
 ## Install ##
 #############
 
-# all install targets should use catkin DESTINATION variables
-# See http://ros.org/doc/api/catkin/html/adv_user_guide/variables.html
 
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
@@ -213,11 +198,17 @@ export(TARGETS utils autoptr_test sensor_base sensor_odometry sensor_range log l
 # (this registers the build-tree with a global CMake-registry)
 export(PACKAGE Gmapping)
 
-# Create the FooBarConfig.cmake and FooBarConfigVersion files
+# Create the GmappingConfig.cmake and GmappingConfigVersion files
 file(RELATIVE_PATH REL_INCLUDE_DIR "${INSTALL_CMAKE_DIR}"
    "${INSTALL_INCLUDE_DIR}")
+
+
+
 # ... for the build tree
 set(CONF_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}" "${PROJECT_BINARY_DIR}")
+
+
+
 configure_file(GmappingConfig.cmake.in
   "${PROJECT_BINARY_DIR}/GmappingConfig.cmake" @ONLY)
 # ... for the install tree
@@ -234,11 +225,8 @@ install(FILES
   "${PROJECT_BINARY_DIR}/GmappingConfigVersion.cmake"
   DESTINATION "${INSTALL_CMAKE_DIR}")
 
-## Install the export set for use with the install-tree
-install(EXPORT GmappingTargets DESTINATION
-  "${INSTALL_CMAKE_DIR}" COMPONENT dev)
 
-
+message("${GMAPPING_CMAKE_DIR}")
 #############
 ## Testing ##
 #############
